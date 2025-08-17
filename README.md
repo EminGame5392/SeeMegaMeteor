@@ -1,6 +1,7 @@
 # SeeMegaMeteor - Плагин для Minecraft серверов
 # Возможны баги тк тесты плагина ещё не проводились!
 
+![v1.2](https://github.com/EminGame5392/SeeMegaMeteor/releases)
 ![Minecraft Version](https://img.shields.io/badge/Minecraft-1.16.5%2B-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
