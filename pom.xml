@@ -6,7 +6,7 @@
 
   <groupId>ru.gdev</groupId>
   <artifactId>SeeMegaMeteor</artifactId>
-  <version>1.0</version>
+  <version>1.1</version>
   <packaging>jar</packaging>
 
   <name>SeeMegaMeteor</name>
@@ -121,6 +121,18 @@
           <groupId>com.google.code.gson</groupId>
           <artifactId>gson</artifactId>
           <version>2.10.1</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/com.fastasyncworldedit/FastAsyncWorldEdit-Core -->
+      <dependency>
+          <groupId>com.fastasyncworldedit</groupId>
+          <artifactId>FastAsyncWorldEdit-Core</artifactId>
+          <version>2.13.1</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/com.fastasyncworldedit/FastAsyncWorldEdit-Bukkit -->
+      <dependency>
+          <groupId>com.fastasyncworldedit</groupId>
+          <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+          <version>2.13.1</version>
       </dependency>
   </dependencies>
 </project>

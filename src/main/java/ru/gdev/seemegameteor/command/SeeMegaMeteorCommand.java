@@ -21,70 +21,88 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public boolean onCommand(CommandSender s, Command cmd, String label, String[] args) {
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (cmd.getName().equalsIgnoreCase("megameteor")) {
-            MegaMeteorEventManager mgr = plugin.events();
-            String t = mgr.getTimeUntilNextLabel();
-            s.sendMessage(ChatColor.translateAlternateColorCodes('&', "&cДо начала: &e" + t));
+            MegaMeteorEventManager eventManager = plugin.getEventManager();
+            String timeLeft = eventManager.getTimeUntilNextLabel();
+            sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                    "&cДо падения МЕГА-Метеора осталось: &e" + timeLeft));
             return true;
         }
-        if (!s.hasPermission("seemegameteor.admin")) return true;
+
+        if (!sender.hasPermission("seemegameteor.admin")) {
+            return true;
+        }
+
         if (args.length == 0) {
-            s.sendMessage("/seemegameteor edit <loot/chance> | start | stop | tp | reload | disable | enable");
+            sender.sendMessage("/seemegameteor edit <loot/chance> | start | stop | tp | reload | disable | enable");
             return true;
         }
+
         String sub = args[0].toLowerCase();
-        if (sub.equals("edit") && args.length >= 2) {
-            if (!(s instanceof Player)) return true;
-            Player p = (Player) s;
-            if (args[1].equalsIgnoreCase("loot")) {
-                new LootEditMenu(plugin, p).open();
-                return true;
-            }
-            if (args[1].equalsIgnoreCase("chance")) {
-                new ChanceEditMenu(plugin, p).open();
-                return true;
-            }
-            return true;
+        switch (sub) {
+            case "edit":
+                handleEditCommand(sender, args);
+                break;
+            case "start":
+                plugin.getEventManager().adminStart();
+                plugin.getConfig().getStringList("messages.external.start").forEach(m ->
+                        Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', m)));
+                break;
+            case "stop":
+                plugin.getEventManager().adminStop();
+                plugin.getConfig().getStringList("messages.external.end").forEach(m ->
+                        Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', m)));
+                break;
+            case "tp":
+                if (sender instanceof Player) {
+                    plugin.getEventManager().teleportToEvent((Player) sender);
+                }
+                break;
+            case "reload":
+                plugin.reload();
+                int seconds = plugin.getEventManager().secondsUntilPlannedStart();
+                sender.sendMessage(ChatColor.GREEN + "Конфигурация перезагружена. Следующее окно запуска: " +
+                        TimeUtil.format(seconds));
+                break;
+            case "disable":
+                plugin.setEventsEnabled(false);
+                sender.sendMessage(ChatColor.RED + "Ивент отключён до команды enable");
+                break;
+            case "enable":
+                plugin.setEventsEnabled(true);
+                sender.sendMessage(ChatColor.GREEN + "Ивент включён");
+                break;
+            default:
+                sender.sendMessage("/seemegameteor edit <loot/chance> | start | stop | tp | reload | disable | enable");
         }
-        if (sub.equals("start")) {
-            plugin.events().adminStart();
-            plugin.getConfig().getStringList("messages.external.start").forEach(m -> Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', m)));
-            return true;
-        }
-        if (sub.equals("stop")) {
-            plugin.events().adminStop();
-            plugin.getConfig().getStringList("messages.external.end").forEach(m -> Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', m)));
-            return true;
-        }
-        if (sub.equals("tp")) {
-            if (s instanceof Player) plugin.events().teleportToEvent((Player) s);
-            return true;
-        }
-        if (sub.equals("reload")) {
-            plugin.reload();
-            s.sendMessage(ChatColor.GREEN + "Конфигурация перезагружена. Следующее окно запуска: " + TimeUtil.format(plugin.events().secondsUntilPlannedStart()));
-            return true;
-        }
-        if (sub.equals("disable")) {
-            plugin.setEventsEnabled(false);
-            s.sendMessage(ChatColor.RED + "Ивент отключён до команды enable");
-            return true;
-        }
-        if (sub.equals("enable")) {
-            plugin.setEventsEnabled(true);
-            s.sendMessage(ChatColor.GREEN + "Ивент включён");
-            return true;
-        }
-        s.sendMessage("/seemegameteor edit <loot/chance> | start | stop | tp | reload | disable | enable");
         return true;
+    }
+
+    private void handleEditCommand(CommandSender s, String[] args) {
+        if (args.length < 2 || !(s instanceof Player)) return;
+
+        Player p = (Player) s;
+        switch (args[1].toLowerCase()) {
+            case "loot":
+                new LootEditMenu(plugin, p).open();
+                break;
+            case "chance":
+                new ChanceEditMenu(plugin, p).open();
+                break;
+        }
     }
 
     @Override
     public List<String> onTabComplete(CommandSender s, Command cmd, String alias, String[] args) {
         if (!cmd.getName().equalsIgnoreCase("seemegameteor")) return null;
-        if (args.length == 1) return Arrays.asList("edit", "start", "stop", "tp", "reload", "disable", "enable");
-        if (args.length == 2 && args[0].equalsIgnoreCase("edit")) return Arrays.asList("loot", "chance");
+
+        if (args.length == 1) {
+            return Arrays.asList("edit", "start", "stop", "tp", "reload", "disable", "enable");
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
+            return Arrays.asList("loot", "chance");
+        }
         return null;
     }
 }

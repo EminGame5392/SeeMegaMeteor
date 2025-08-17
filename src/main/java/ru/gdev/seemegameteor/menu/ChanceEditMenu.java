@@ -33,12 +33,12 @@ public class ChanceEditMenu implements Listener {
 
     public void open() {
         int i = 0;
-        for (LootEntry e : plugin.loot().getEntries()) {
+        for (LootEntry e : plugin.getLootManager().getEntries()) {
             if (i >= inv.getSize()) break;
             ItemStack is = e.getItem().clone();
             ItemMeta meta = is.getItemMeta();
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.YELLOW + "Шанс: " + ChatColor.GOLD + String.format(java.util.Locale.US, "%.2f", e.getChance()));
+            lore.add(ChatColor.YELLOW + "Шанс: " + ChatColor.GOLD + String.format("%.2f", e.getChance()));
             lore.add(ChatColor.GRAY + "ЛКМ: +0.1, ПКМ: -0.1");
             lore.add(ChatColor.GRAY + "Shift+ЛКМ: +1.0, Shift+ПКМ: -1.0");
             meta.setLore(lore);
@@ -52,37 +52,56 @@ public class ChanceEditMenu implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (!e.getView().getTitle().equals("expectedTitle")) return;
-        if (!e.getWhoClicked().getUniqueId().equals(player.getUniqueId())) return;
-        if (e.getClickedInventory() == null || !e.getClickedInventory().equals(inv)) return;
+        if (!e.getView().getTitle().equals("Chance Editor") ||
+                !e.getWhoClicked().getUniqueId().equals(player.getUniqueId())) return;
+
+        if (e.getClickedInventory() == null || !e.getClickedInventory().equals(inv)) {
+            e.setCancelled(true);
+            return;
+        }
+
         e.setCancelled(true);
         int slot = e.getSlot();
-        if (slot < 0 || slot >= plugin.loot().getEntries().size()) return;
-        LootEntry entry = plugin.loot().getEntries().get(slot);
-        double delta = 0;
-        if (e.getClick() == ClickType.LEFT) delta = 0.1;
-        else if (e.getClick() == ClickType.RIGHT) delta = -0.1;
-        else if (e.getClick() == ClickType.SHIFT_LEFT) delta = 1.0;
-        else if (e.getClick() == ClickType.SHIFT_RIGHT) delta = -1.0;
+        if (slot < 0 || slot >= plugin.getLootManager().getEntries().size()) return;
+
+        LootEntry entry = plugin.getLootManager().getEntries().get(slot);
+        double delta = getDeltaForClick(e.getClick());
+
         if (delta != 0) {
             entry.setChance(Math.max(0, entry.getChance() + delta));
-            ItemStack is = inv.getItem(slot);
-            if (is == null) return;
-            ItemMeta meta = is.getItemMeta();
-            List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.YELLOW + "Шанс: " + ChatColor.GOLD + String.format(java.util.Locale.US, "%.2f", entry.getChance()));
-            lore.add(ChatColor.GRAY + "ЛКМ: +0.1, ПКМ: -0.1");
-            lore.add(ChatColor.GRAY + "Shift+ЛКМ: +1.0, Shift+ПКМ: -1.0");
-            meta.setLore(lore);
-            is.setItemMeta(meta);
+            updateSlot(slot, entry);
         }
+    }
+
+    private double getDeltaForClick(ClickType click) {
+        switch (click) {
+            case LEFT: return 0.1;
+            case RIGHT: return -0.1;
+            case SHIFT_LEFT: return 1.0;
+            case SHIFT_RIGHT: return -1.0;
+            default: return 0;
+        }
+    }
+
+    private void updateSlot(int slot, LootEntry entry) {
+        ItemStack is = inv.getItem(slot);
+        if (is == null) return;
+
+        ItemMeta meta = is.getItemMeta();
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.YELLOW + "Шанс: " + ChatColor.GOLD + String.format("%.2f", entry.getChance()));
+        lore.add(ChatColor.GRAY + "ЛКМ: +0.1, ПКМ: -0.1");
+        lore.add(ChatColor.GRAY + "Shift+ЛКМ: +1.0, Shift+ПКМ: -1.0");
+        meta.setLore(lore);
+        is.setItemMeta(meta);
     }
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        if (!e.getView().getTitle().equals("expectedTitle")) return;
-        if (!e.getPlayer().getUniqueId().equals(player.getUniqueId())) return;
-        plugin.loot().save();
+        if (!e.getView().getTitle().equals("Chance Editor") ||
+                !e.getPlayer().getUniqueId().equals(player.getUniqueId())) return;
+
+        plugin.getLootManager().save();
         HandlerList.unregisterAll(this);
     }
 }

@@ -2,8 +2,8 @@ package ru.gdev.seemegameteor.event;
 
 public enum EventState {
     IDLE,
-    PREANNOUNCE,
     SPAWNED,
+    WAITING_ACTIVATION,
     ACTIVATED,
     METEOR_FALLING,
     CRATER_READY,
