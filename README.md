@@ -1,8 +1,8 @@
 # SeeMegaMeteor - Плагин для Minecraft серверов
 
-В результате тестов выявленны редкие, но критические ошибки, пожалйста не используйте плагин до следующего теста версии 1.3!
+Тесты версии 1.3 были успешно, но редко наблюдаются ошибки с hex цветами и появлением ивента, ожидайте 1.4!
 
-version 1.2
+version 1.3
 
 ![Minecraft Version](https://img.shields.io/badge/Minecraft-1.16.5%2B-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
