@@ -43,6 +43,10 @@ public class MegaMeteorEventManager {
         scheduleNext();
     }
 
+    public boolean isEventRunning() {
+        return state != EventState.IDLE;
+    }
+
     public void shutdown() {
         if (activatorHolo != null) activatorHolo.remove();
         cleanupLoot();
@@ -53,7 +57,7 @@ public class MegaMeteorEventManager {
         long now = System.currentTimeMillis() / 1000L;
 
         if (state == EventState.IDLE) {
-            if (now >= nextPlannedEpochSec - plugin.getConfig().getInt("timings.preannounce_seconds", 60)) {
+            if (now >= nextPlannedEpochSec - plugin.getConfig().getInt("event_settings.stages.delay_before_spawn", 10)) {
                 spawnStage1();
                 return;
             }
@@ -108,41 +112,24 @@ public class MegaMeteorEventManager {
         eventCenter = pickLocation(w);
         worldEdit.pasteSchematic(plugin.getConfig().getString("event_settings.schematics.initial"), eventCenter);
         magnetiteBlock = eventCenter.getBlock();
-        magnetiteBlock.setType(Material.LODESTONE, false);
+        magnetiteBlock.setType(Material.getMaterial(plugin.getConfig().getString("meteor_stages.materials.initial", "LODESTONE")), false);
 
-        spawnActivatorHologram(eventCenter.clone().add(0.5,
-                plugin.getConfig().getDouble("event_settings.holo.height", 1.5), 0.5));
+        activatorHolo = new Hologram(plugin, eventCenter, plugin.getConfig().getStringList("event_settings.holo.lines"));
+        activatorHolo.appendLine(plugin.getConfig().getString("event_settings.loot.hologram_activate_text", "&eНажмите, чтобы активировать"));
+        activatorHolo.onInteract(this::handleActivation);
+        activatorHolo.spawn();
 
         broadcastMessages("messages.stared");
         state = EventState.SPAWNED;
-        phaseEndsAtEpochSec = 0;
+        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L + plugin.getConfig().getInt("event_settings.stages.delay_before_meteor", 20);
     }
 
-    private void spawnActivatorHologram(Location loc) {
-        activatorHolo = new Hologram(loc, Arrays.asList(
-                ChatColor.translateAlternateColorCodes('&',
-                        plugin.getConfig().getString("event_settings.holo.lines.0", "&cМега-Метеор")),
-                ChatColor.translateAlternateColorCodes('&',
-                        plugin.getConfig().getString("event_settings.holo.lines.1", "&f ")),
-                ChatColor.translateAlternateColorCodes('&',
-                        plugin.getConfig().getString("event_settings.holo.lines.2", "&fСтатус: &r{status}")),
-                ChatColor.translateAlternateColorCodes('&',
-                        plugin.getConfig().getString("event_settings.holo.lines.3", "&f "))
-        ));
-
-        activatorHolo.appendLine(ChatColor.translateAlternateColorCodes('&',
-                plugin.getConfig().getString("event_settings.loot.hologram_activate_text", "&eНажмите, чтобы активировать")));
-
-        activatorHolo.onInteract(p -> {
-            if (state != EventState.SPAWNED) return;
-            activator = p.getUniqueId();
-            broadcastMessages("messages.activated");
-            state = EventState.ACTIVATED;
-            phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L +
-                    plugin.getConfig().getInt("timings.activation_to_meteor_seconds", 20);
-        });
-
-        activatorHolo.spawn();
+    private void handleActivation(Player player) {
+        if (state != EventState.SPAWNED) return;
+        activator = player.getUniqueId();
+        broadcastMessages("messages.activated");
+        state = EventState.ACTIVATED;
+        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L + plugin.getConfig().getInt("event_settings.stages.delay_before_anchor", 10);
     }
 
     private void startMeteorFall() {
@@ -150,7 +137,8 @@ public class MegaMeteorEventManager {
         int y = plugin.getConfig().getInt("heights.meteor_spawn_y", 255);
         Location start = new Location(eventCenter.getWorld(), eventCenter.getX(), y, eventCenter.getZ());
 
-        FallingBlock meteor = start.getWorld().spawnFallingBlock(start, Material.MAGMA_BLOCK, (byte) 0);
+        FallingBlock meteor = start.getWorld().spawnFallingBlock(start,
+                Material.getMaterial(plugin.getConfig().getString("meteor_stages.materials.falling", "MAGMA_BLOCK")), (byte) 0);
         meteor.setVelocity(new Vector(0, -0.9, 0));
 
         phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L + 5;
@@ -161,12 +149,10 @@ public class MegaMeteorEventManager {
         w.playSound(eventCenter, Sound.ENTITY_GENERIC_EXPLODE, 2f, 1f);
         w.spawnParticle(Particle.EXPLOSION_HUGE, eventCenter, 3, 0.5, 0.3, 0.5, 0.01);
 
-        int radius = plugin.getConfig().getInt("crater.radius", 6);
-        worldEdit.eraseAreaAround(eventCenter, radius);
+        worldEdit.eraseAreaAround(eventCenter, plugin.getConfig().getInt("crater.radius", 6));
 
         state = EventState.CRATER_READY;
-        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L +
-                plugin.getConfig().getInt("timings.anchor_delay_seconds", 10);
+        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L + plugin.getConfig().getInt("event_settings.stages.delay_before_loot", 15);
     }
 
     private void spawnAnchorSecondStage() {
@@ -183,10 +169,9 @@ public class MegaMeteorEventManager {
         spawnLootCrate();
 
         state = EventState.ANCHOR_SPAWNED;
-        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L +
-                ThreadLocalRandom.current().nextInt(
-                        plugin.getConfig().getInt("timings.loot_burst_min_seconds", 15),
-                        plugin.getConfig().getInt("timings.loot_burst_max_seconds", 30) + 1);
+        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L + ThreadLocalRandom.current().nextInt(
+                plugin.getConfig().getInt("timings.loot_burst_min_seconds", 15),
+                plugin.getConfig().getInt("timings.loot_burst_max_seconds", 30) + 1);
     }
 
     private void spawnLootCrate() {
@@ -258,15 +243,15 @@ public class MegaMeteorEventManager {
         }
 
         state = EventState.GLOW_BURST;
-        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L +
-                plugin.getConfig().getInt("timings.beacon_finish_delay_seconds", 120);
+        phaseEndsAtEpochSec = System.currentTimeMillis() / 1000L + plugin.getConfig().getInt("event_settings.stages.delay_before_beacon", 120);
     }
 
     private void scheduleBeaconFinish() {
         int extra = plugin.getConfig().getInt("heights.beacon_spawn_extra_height", 30);
         Location start = eventCenter.clone().add(0, extra, 0);
 
-        FallingBlock beacon = start.getWorld().spawnFallingBlock(start, Material.BEACON, (byte) 0);
+        FallingBlock beacon = start.getWorld().spawnFallingBlock(start,
+                Material.getMaterial(plugin.getConfig().getString("meteor_stages.materials.final", "BEACON")), (byte) 0);
         beacon.setVelocity(new Vector(0, -0.9, 0));
 
         state = EventState.BEACON_FINISH;
@@ -281,8 +266,7 @@ public class MegaMeteorEventManager {
         w.playSound(eventCenter, Sound.BLOCK_BEACON_POWER_SELECT, 1.5f, 1.2f);
         w.spawnParticle(Particle.CLOUD, eventCenter, 120, 2, 0.5, 2, 0.02);
 
-        int radius = plugin.getConfig().getInt("crater.radius", 6);
-        worldEdit.eraseAreaAround(eventCenter, radius);
+        worldEdit.eraseAreaAround(eventCenter, plugin.getConfig().getInt("crater.radius", 6));
 
         if (magnetiteBlock != null) magnetiteBlock.setType(Material.AIR, false);
         if (anchorBlock != null) anchorBlock.setType(Material.AIR, false);
@@ -296,12 +280,21 @@ public class MegaMeteorEventManager {
     }
 
     public void adminStart() {
-        if (state != EventState.IDLE) return;
+        if (state != EventState.IDLE) {
+            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&',
+                    plugin.getConfig().getString("messages.errors.already_running", "&cИвент уже запущен!")));
+            return;
+        }
         spawnStage1();
         broadcastMessages("messages.external.start");
     }
 
     public void adminStop() {
+        if (state == EventState.IDLE) {
+            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&',
+                    plugin.getConfig().getString("messages.errors.not_started", "&cИвент ещё не начался!")));
+            return;
+        }
         finishNow();
         broadcastMessages("messages.external.end");
     }
@@ -326,28 +319,33 @@ public class MegaMeteorEventManager {
         if (eventCenter != null) p.teleport(eventCenter.clone().add(0, 1, 0));
     }
 
+    public String replacePlaceholders(String text) {
+        return text.replace("{status}", statusLabel())
+                .replace("{time_before_start}", TimeUtil.format(secondsUntilPlannedStart()))
+                .replace("{time_before_open}", TimeUtil.format(secondsUntilPlannedStart()))
+                .replace("{time_before_end}", TimeUtil.format((int)(phaseEndsAtEpochSec - System.currentTimeMillis()/1000L)))
+                .replace("{x}", eventCenter != null ? String.valueOf(eventCenter.getBlockX()) : "0")
+                .replace("{y}", eventCenter != null ? String.valueOf(eventCenter.getBlockY()) : "0")
+                .replace("{z}", eventCenter != null ? String.valueOf(eventCenter.getBlockZ()) : "0")
+                .replace("{activator}", activator != null ? Bukkit.getOfflinePlayer(activator).getName() : "-");
+    }
+
     public String statusLabel() {
-        FileConfiguration cfg = plugin.getConfig();
         switch (state) {
-            case IDLE: return cfg.getString("placeholders_settings.status.not_activated", "Не активирован");
-            case SPAWNED: return cfg.getString("placeholders_settings.status.not_opened", "Ожидание активации");
-            case WAITING_ACTIVATION: return cfg.getString("placeholders_settings.status.not_opened", "Ожидание активации");
-            default: return cfg.getString("placeholders_settings.status.opened", "Активен");
+            case IDLE: return plugin.getConfig().getString("placeholders_settings.status.not_activated", "&cНе активирован");
+            case SPAWNED: return plugin.getConfig().getString("placeholders_settings.status.not_opened", "&eОжидание активации");
+            case WAITING_ACTIVATION: return plugin.getConfig().getString("placeholders_settings.status.not_opened", "&eОжидание активации");
+            default: return plugin.getConfig().getString("placeholders_settings.status.opened", "&aАктивен");
         }
     }
 
-    public String placeholder(String key) {
-        if (key.equals("{status}")) return statusLabel();
-        if (key.equals("{time_before_start}")) return TimeUtil.format(secondsUntilPlannedStart());
-        if (eventCenter != null) {
-            if (key.equals("{x}")) return String.valueOf(eventCenter.getBlockX());
-            if (key.equals("{y}")) return String.valueOf(eventCenter.getBlockY());
-            if (key.equals("{z}")) return String.valueOf(eventCenter.getBlockZ());
-        }
-        if (key.equals("{activator}")) {
-            return activator != null ? Bukkit.getOfflinePlayer(activator).getName() : "-";
-        }
-        return "";
+    public int secondsUntilPlannedStart() {
+        long now = System.currentTimeMillis() / 1000L;
+        return (int) Math.max(0, nextPlannedEpochSec - now);
+    }
+
+    public String getTimeUntilNextLabel() {
+        return TimeUtil.format(secondsUntilPlannedStart());
     }
 
     private void scheduleNext() {
@@ -364,15 +362,6 @@ public class MegaMeteorEventManager {
         nextPlannedEpochSec = next.toEpochSecond();
     }
 
-    public int secondsUntilPlannedStart() {
-        long now = System.currentTimeMillis() / 1000L;
-        return (int) Math.max(0, nextPlannedEpochSec - now);
-    }
-
-    public String getTimeUntilNextLabel() {
-        return TimeUtil.format(secondsUntilPlannedStart());
-    }
-
     private Location pickLocation(World w) {
         Random r = ThreadLocalRandom.current();
         int x = r.nextInt(2000) - 1000;
@@ -383,13 +372,7 @@ public class MegaMeteorEventManager {
 
     private void broadcastMessages(String path) {
         plugin.getConfig().getStringList(path).forEach(msg ->
-                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&',
-                        msg.replace("{time_before_start}", TimeUtil.format(secondsUntilPlannedStart()))
-                                .replace("{x}", eventCenter != null ? String.valueOf(eventCenter.getBlockX()) : "0")
-                                .replace("{y}", eventCenter != null ? String.valueOf(eventCenter.getBlockY()) : "0")
-                                .replace("{z}", eventCenter != null ? String.valueOf(eventCenter.getBlockZ()) : "0")
-                                .replace("{activator}", activator != null ? Bukkit.getOfflinePlayer(activator).getName() : "-")
-                )));
+                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', replacePlaceholders(msg))));
     }
 
     private ZoneId parseZone(String id) {

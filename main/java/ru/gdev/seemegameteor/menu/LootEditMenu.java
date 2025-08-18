@@ -8,6 +8,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import ru.gdev.seemegameteor.SeeMegaMeteor;
@@ -22,17 +23,15 @@ public class LootEditMenu implements Listener {
     public LootEditMenu(SeeMegaMeteor plugin, Player player) {
         this.plugin = plugin;
         this.player = player;
-        this.inv = Bukkit.createInventory(null, 54, "Loot Editor");
+        this.inv = Bukkit.createInventory(null, 54, "§6Редактор лута");
     }
 
     public void open() {
         LootManager lm = plugin.getLootManager();
-        int i = 0;
-        for (LootEntry e : lm.getEntries()) {
-            if (i >= inv.getSize()) break;
-            ItemStack is = e.getItem().clone();
+        for (int i = 0; i < Math.min(inv.getSize(), lm.getEntries().size()); i++) {
+            ItemStack is = lm.getEntries().get(i).getItem().clone();
             if (is.getType() == Material.AIR) is = new ItemStack(Material.BARRIER);
-            inv.setItem(i++, is);
+            inv.setItem(i, is);
         }
         player.openInventory(inv);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -40,31 +39,37 @@ public class LootEditMenu implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (!e.getView().getTitle().equals("Loot Editor") ||
-                !e.getWhoClicked().getUniqueId().equals(player.getUniqueId())) return;
-
-        if (e.getClickedInventory() == null || !e.getClickedInventory().equals(inv)) {
-            e.setCancelled(true);
-            return;
+        if (e.getView().getTitle().equals("§6Редактор лута") &&
+                e.getWhoClicked().getUniqueId().equals(player.getUniqueId())) {
+            e.setCancelled(false);
         }
-        e.setCancelled(false);
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent e) {
+        if (e.getView().getTitle().equals("§6Редактор лута") &&
+                e.getWhoClicked().getUniqueId().equals(player.getUniqueId())) {
+            e.setCancelled(false);
+        }
     }
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        if (!e.getView().getTitle().equals("Loot Editor") ||
-                !e.getPlayer().getUniqueId().equals(player.getUniqueId())) return;
+        if (e.getView().getTitle().equals("§6Редактор лута") &&
+                e.getPlayer().getUniqueId().equals(player.getUniqueId())) {
 
-        LootManager lm = plugin.getLootManager();
-        lm.getEntries().clear();
+            LootManager lm = plugin.getLootManager();
+            lm.getEntries().clear();
 
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack it = inv.getItem(i);
-            if (it == null || it.getType() == Material.AIR || it.getType() == Material.BARRIER) continue;
-            lm.getEntries().add(new LootEntry(it.clone(), 1d));
+            for (int i = 0; i < inv.getSize(); i++) {
+                ItemStack it = inv.getItem(i);
+                if (it != null && it.getType() != Material.AIR && it.getType() != Material.BARRIER) {
+                    lm.getEntries().add(new LootEntry(it.clone(), 1.0));
+                }
+            }
+
+            lm.save();
+            HandlerList.unregisterAll(this);
         }
-
-        lm.save();
-        HandlerList.unregisterAll(this);
     }
 }

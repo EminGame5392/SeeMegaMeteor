@@ -1,70 +1,91 @@
 package ru.gdev.seemegameteor.holo;
 
+import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Consumer;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
+import ru.gdev.seemegameteor.SeeMegaMeteor;
+import ru.gdev.seemegameteor.event.MegaMeteorEventManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
-import ru.gdev.seemegameteor.SeeMegaMeteor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 public class Hologram implements Listener {
     private final List<String> lines = new ArrayList<>();
     private final List<ArmorStand> stands = new ArrayList<>();
     private final Location origin;
     private Consumer<Player> click;
-    private UUID id;
+    private final SeeMegaMeteor plugin;
 
-    public Hologram(Location origin, List<String> initial) {
-        this.origin = origin.clone();
-        this.lines.addAll(initial);
-        SeeMegaMeteor.get().getServer().getPluginManager().registerEvents(this, SeeMegaMeteor.get());
-    }
+    public void appendLine(String text) {
+        if (text == null) return;
 
-    public void appendLine(String s) {
-        lines.add(s);
+        this.lines.add(text);
+        if (stands != null && !stands.isEmpty()) {
+            Location loc = origin.clone().subtract(0, 0.25 * (stands.size() - 1), 0);
+            ArmorStand as = (ArmorStand) origin.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
+            as.setCustomName(ChatColor.translateAlternateColorCodes('&', text));
+            as.setCustomNameVisible(true);
+            as.setGravity(false);
+            as.setVisible(false);
+            as.setInvulnerable(true);
+            stands.add(as);
+        }
     }
 
     public void onInteract(Consumer<Player> consumer) {
-        this.click = consumer;
+        this.click = player -> {
+            if (plugin.getEventManager().isEventRunning()) {
+                consumer.accept(player);
+            }
+        };
+    }
+
+    public Hologram(SeeMegaMeteor plugin, Location origin, List<String> initial) {
+        this.plugin = plugin;
+        this.origin = origin.clone().add(
+                plugin.getConfig().getDouble("event_settings.holo.offset_x", 0.5),
+                plugin.getConfig().getDouble("event_settings.holo.height", 1.5),
+                plugin.getConfig().getDouble("event_settings.holo.offset_z", 0.5)
+        );
+        this.lines.addAll(initial);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     public void spawn() {
         remove();
-        Location l = origin.clone();
+        Location loc = origin.clone();
         for (int i = 0; i < lines.size(); i++) {
-            ArmorStand as = (ArmorStand) origin.getWorld().spawnEntity(l.clone().add(0, -0.25 * i, 0), EntityType.ARMOR_STAND);
-            as.setMarker(true);
-            as.setVisible(false);
-            as.setGravity(false);
+            ArmorStand as = (ArmorStand) origin.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
+            as.setCustomName(plugin.getEventManager().replacePlaceholders(lines.get(i)));
             as.setCustomNameVisible(true);
-            as.setCustomName(lines.get(i));
-            as.setSmall(true);
+            as.setGravity(false);
+            as.setVisible(false);
+            as.setInvulnerable(true);
             stands.add(as);
+            loc.subtract(0, 0.25, 0);
         }
-        id = UUID.randomUUID();
-    }
-
-    public void remove() {
-        for (ArmorStand as : stands) if (!as.isDead()) as.remove();
-        stands.clear();
     }
 
     @EventHandler
     public void onClick(PlayerInteractAtEntityEvent e) {
-        if (click == null) return;
-        if (!(e.getRightClicked() instanceof ArmorStand)) return;
-        ArmorStand as = (ArmorStand) e.getRightClicked();
-        if (!stands.contains(as)) return;
-        e.setCancelled(true);
-        click.accept(e.getPlayer());
+        if (click != null && stands.contains(e.getRightClicked())) {
+            e.setCancelled(true);
+            click.accept(e.getPlayer());
+        }
+    }
+
+    public void remove() {
+        stands.forEach(stand -> {
+            if (!stand.isDead()) stand.remove();
+        });
+        stands.clear();
     }
 }

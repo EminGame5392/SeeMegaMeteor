@@ -10,12 +10,13 @@ import ru.gdev.seemegameteor.menu.LootEditMenu;
 import ru.gdev.seemegameteor.util.TimeUtil;
 
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.sk89q.commandbook.CommandBookUtil.sendMessage;
 
 public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
     private final SeeMegaMeteor plugin;
-    private final List<String> subCommands = Arrays.asList(
-            "edit", "start", "stop", "tp", "reload", "disable", "enable"
-    );
+    private final List<String> subCommands = Arrays.asList("edit", "start", "stop", "tp", "reload", "disable", "enable", "help");
     private final List<String> editSubCommands = Arrays.asList("loot", "chance");
 
     public SeeMegaMeteorCommand(SeeMegaMeteor plugin) {
@@ -30,40 +31,72 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!sender.hasPermission("seemegameteor.admin")) {
+            sendMessage(sender, "messages.errors.no_permission");
             return true;
         }
 
-        if (args.length == 0) {
-            showUsage(sender);
+        if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
+            showHelp(sender);
             return true;
         }
 
         switch (args[0].toLowerCase()) {
-            case "edit":
-                handleEditCommand(sender, args);
-                break;
-            case "start":
-                handleStartCommand(sender);
-                break;
-            case "stop":
-                handleStopCommand(sender);
-                break;
-            case "tp":
-                handleTpCommand(sender);
-                break;
-            case "reload":
-                handleReloadCommand(sender);
-                break;
-            case "disable":
-                handleDisableCommand(sender);
-                break;
-            case "enable":
-                handleEnableCommand(sender);
-                break;
-            default:
-                showUsage(sender);
+            case "edit": handleEditCommand(sender, args); break;
+            case "start": handleStartCommand(sender); break;
+            case "stop": handleStopCommand(sender); break;
+            case "tp": handleTpCommand(sender); break;
+            case "reload": handleReloadCommand(sender); break;
+            case "disable": handleDisableCommand(sender); break;
+            case "enable": handleEnableCommand(sender); break;
+            default: sendMessage(sender, "messages.errors.invalid_command");
         }
         return true;
+    }
+
+    private void showHelp(CommandSender sender) {
+        List<String> help = Arrays.asList(
+                "&#FFAA00===== &#FFFFFFSeeMegaMeteor Help &#FFAA00=====",
+                "&#FFAA00/seemegameteor edit loot &#FFFFFF- Редактировать лут",
+                "&#FFAA00/seemegameteor edit chance &#FFFFFF- Редактировать шансы",
+                "&#FFAA00/seemegameteor start &#FFFFFF- Принудительно запустить",
+                "&#FFAA00/seemegameteor stop &#FFFFFF- Принудительно остановить",
+                "&#FFAA00/seemegameteor tp &#FFFFFF- Телепорт к ивенту",
+                "&#FFAA00/seemegameteor reload &#FFFFFF- Перезагрузить конфиг",
+                "&#FFAA00/seemegameteor disable &#FFFFFF- Отключить ивенты",
+                "&#FFAA00/seemegameteor enable &#FFFFFF- Включить ивенты",
+                "&#FFAA00/megameteor &#FFFFFF- Время до ивента"
+        );
+        help.forEach(line -> sender.sendMessage(ChatColor.translateAlternateColorCodes('&', line)));
+    }
+
+    private void handleStartCommand(CommandSender sender) {
+        if (plugin.getEventManager().isEventRunning()) {
+            sendMessage(sender, "messages.errors.already_running");
+            return;
+        }
+        plugin.getEventManager().adminStart();
+        sendMessages("messages.external.start");
+    }
+
+    private void handleStopCommand(CommandSender sender) {
+        if (!plugin.getEventManager().isEventRunning()) {
+            sendMessage(sender, "messages.errors.not_started");
+            return;
+        }
+        plugin.getEventManager().adminStop();
+        sendMessages("messages.external.end");
+    }
+
+    private void sendMessage(CommandSender sender, String path) {
+        String message = plugin.getConfig().getString(path);
+        if (message != null) {
+            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+        }
+    }
+
+    private void sendMessages(String path) {
+        plugin.getConfig().getStringList(path).forEach(msg ->
+                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', msg)));
     }
 
     private void handleMegaMeteorCommand(CommandSender sender) {
@@ -94,18 +127,6 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
             default:
                 sender.sendMessage(ChatColor.RED + "Неизвестный параметр: " + args[1]);
         }
-    }
-
-    private void handleStartCommand(CommandSender sender) {
-        plugin.getEventManager().adminStart();
-        plugin.getConfig().getStringList("messages.external.start").forEach(msg ->
-                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', msg)));
-    }
-
-    private void handleStopCommand(CommandSender sender) {
-        plugin.getEventManager().adminStop();
-        plugin.getConfig().getStringList("messages.external.end").forEach(msg ->
-                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', msg)));
     }
 
     private void handleTpCommand(CommandSender sender) {
@@ -139,14 +160,18 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
-        if (!cmd.getName().equalsIgnoreCase("seemegameteor")) return null;
+        if (!cmd.getName().equalsIgnoreCase("seemegameteor")) return Collections.emptyList();
 
         if (args.length == 1) {
-            return filterCompletions(args[0], subCommands);
+            return subCommands.stream()
+                    .filter(c -> c.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
-            return filterCompletions(args[1], editSubCommands);
+            return editSubCommands.stream()
+                    .filter(c -> c.startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
         }
 
         return Collections.emptyList();
