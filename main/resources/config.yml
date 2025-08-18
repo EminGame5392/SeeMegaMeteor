@@ -1,60 +1,154 @@
+# === Настройки цветов ===
+colors:
+  # Включена ли поддержка HEX-цветов (true/false)
+  enabled: true
+  # Регулярное выражение для проверки HEX-цветов
+  hex_pattern: "&#[0-9a-fA-F]{6}"
+
+# === Сообщения плагина ===
 messages:
+  # Сообщения перед началом ивента
   before:
+    # За сколько секунд до начала показывать сообщение
     time: 60
+    # Текст сообщения (поддерживает & и HEX цвета)
     text:
       - '&#FFAA00До падения МЕГА-Метеора осталось: &#FFFFFF{time_before_start}'
+
+  # Сообщение при появлении метеора
   stared:
     - '&#FF0000МЕГА-Метеор скоро упадёт! Быстрее активируй его!'
     - '&#00FF00Координаты: {x} {y} {z}'
+
+  # Сообщение при активации игроком
   activated:
     - '&#FF5500{activator} &#FFFFFFактивировал &#FF0000МЕГА-Метеор!'
+
+  # Сообщение об окончании ивента
   ended:
     - '&#FF0000МЕГА-Метеор закончился!'
+
+  # Принудительные сообщения (через админ команду)
   external:
     start:
       - '&#FF0000МЕГА-Метеор принудительно запущен!'
     end:
       - '&#FF0000МЕГА-Метеор принудительно закончился!'
+
+  # Сообщения об ошибках
   errors:
     not_started: '&#FF0000Ивент ещё не начался!'
     already_running: '&#FF0000Ивент уже запущен!'
     no_permission: '&#FF0000Недостаточно прав!'
-    invalid_command: '&#FF0000Неверная команда! Используйте /seemegameteor help'
+    invalid_command: '&#FF0000Неверная команда!'
+    only_for_players: '&#FF0000Эта команда только для игроков!'
 
-placeholders_settings:
-  status:
-    not_activated: "&#FF0000Не активирован"
-    not_opened: "&#FFFF00{time_before_open}"
-    opened: "&#00FF00До закрытия: {time_before_end}"
-
+# === Настройки ивента ===
 event_settings:
+  # Настройки спавна
   spawn_settings:
+    # В каком мире появляется ивент
     world: world
+    # Настройки биомов
     biome:
+      # Тип фильтра: wl - белый список, bl - черный список
       type: wl
+      # Список биомов
       list:
-        - the_void
-  start:
-    time_zone: UTC+3
-    time:
-      hours: 15
-      minutes: 0
-      seconds: 0
-  stages:
-    delay_before_spawn: 10
-    delay_before_meteor: 20
-    delay_before_anchor: 10
-    delay_before_loot: 15
-    delay_before_beacon: 120
+        - plains
+        - forest
+
+  # Настройки взаимодействия
+  interaction:
+    # Кнопка активации (LEFT/RIGHT)
+    activation_button: RIGHT
+    # Радиус активации в блоках
+    activation_radius: 3
+    # Задержка между активациями в секундах
+    activation_cooldown: 2
+
+  # Настройки голограммы
   holo:
-    height: 1.5
+    # Высота голограммы над блоком
+    height: 1.8
+    # Смещение по X
     offset_x: 0.5
+    # Смещение по Z
     offset_z: 0.5
+    # Текст голограммы
     lines:
       - '&#FF0000Мега-Метеор'
       - '&#FFFFFF '
       - '&#FFFFFFСтатус: {status}'
       - '&#FFFFFF '
-  interaction:
-    activation_radius: 3
-    activation_block: LODESTONE
+
+  # Настройки лута
+  loot:
+    # Текст для активации
+    hologram_activate_text: '&#FFFF00Нажмите ПКМ для активации'
+    # Радиус разброса лута
+    spawn_radius: 15
+    # Длительность свечения лута в секундах
+    glow_duration: 40
+    # Сила разброса предметов (0.1-1.0)
+    item_spread: 0.5
+
+  # Тайминги этапов (в секундах)
+  stages:
+    # Задержка перед появлением метеора
+    delay_before_spawn: 10
+    # Задержка перед падением метеора
+    delay_before_meteor: 20
+    # Задержка перед якорем возрождения
+    delay_before_anchor: 10
+    # Задержка перед раздачей лута
+    delay_before_loot: 15
+    # Задержка перед финальным маяком
+    delay_before_beacon: 120
+
+  # Пути к схематикам
+  schematics:
+    # Первая стадия (появление)
+    initial: 'plugins/SeeMegaMeteor/schematics/meteor_stage1.schem'
+    # Вторая стадия (после взрыва)
+    second: 'plugins/SeeMegaMeteor/schematics/meteor_stage2.schem'
+
+# === Материалы для стадий ===
+meteor_stages:
+  materials:
+    # Блок на первой стадии
+    initial: LODESTONE
+    # Блок падающего метеора
+    falling: MAGMA_BLOCK
+    # Финальный блок
+    final: BEACON
+
+# === Настройки эффектов ===
+effects:
+  spawn:
+    # Звук при появлении
+    sound: ENTITY_ENDER_DRAGON_GROWL
+    # Тип частиц
+    particle: FLAME
+    # Количество частиц
+    particle_count: 100
+  impact:
+    # Звук при ударе
+    sound: ENTITY_GENERIC_EXPLODE
+    # Тип частиц
+    particle: EXPLOSION_HUGE
+    # Количество частиц
+    particle_count: 5
+
+# === Настройки хранилища ===
+storage:
+  # Тип хранилища (YML/JSON/SQLITE/H2)
+  type: SQLITE
+  # Настройки бэкапов
+  backup:
+    # Включить бэкапы (true/false)
+    enabled: true
+    # Интервал бэкапов в минутах
+    interval_minutes: 60
+    # Сколько бэкапов хранить
+    keep_backups: 5

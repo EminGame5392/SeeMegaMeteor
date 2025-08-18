@@ -16,8 +16,11 @@ import static com.sk89q.commandbook.CommandBookUtil.sendMessage;
 
 public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
     private final SeeMegaMeteor plugin;
-    private final List<String> subCommands = Arrays.asList("edit", "start", "stop", "tp", "reload", "disable", "enable", "help");
+    private final List<String> subCommands = Arrays.asList(
+            "edit", "start", "stop", "tp", "reload", "disable", "enable", "help"
+    );
     private final List<String> editSubCommands = Arrays.asList("loot", "chance");
+    private final List<String> startSubCommands = Arrays.asList("state");
 
     public SeeMegaMeteorCommand(SeeMegaMeteor plugin) {
         this.plugin = plugin;
@@ -41,14 +44,29 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
         }
 
         switch (args[0].toLowerCase()) {
-            case "edit": handleEditCommand(sender, args); break;
-            case "start": handleStartCommand(sender); break;
-            case "stop": handleStopCommand(sender); break;
-            case "tp": handleTpCommand(sender); break;
-            case "reload": handleReloadCommand(sender); break;
-            case "disable": handleDisableCommand(sender); break;
-            case "enable": handleEnableCommand(sender); break;
-            default: sendMessage(sender, "messages.errors.invalid_command");
+            case "edit":
+                handleEditCommand(sender, args);
+                break;
+            case "start":
+                handleStartCommand(sender, args);
+                break;
+            case "stop":
+                handleStopCommand(sender);
+                break;
+            case "tp":
+                handleTpCommand(sender);
+                break;
+            case "reload":
+                handleReloadCommand(sender);
+                break;
+            case "disable":
+                handleDisableCommand(sender);
+                break;
+            case "enable":
+                handleEnableCommand(sender);
+                break;
+            default:
+                sendMessage(sender, "messages.errors.invalid_command");
         }
         return true;
     }
@@ -58,8 +76,8 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
                 "&#FFAA00===== &#FFFFFFSeeMegaMeteor Help &#FFAA00=====",
                 "&#FFAA00/seemegameteor edit loot &#FFFFFF- Редактировать лут",
                 "&#FFAA00/seemegameteor edit chance &#FFFFFF- Редактировать шансы",
-                "&#FFAA00/seemegameteor start &#FFFFFF- Принудительно запустить",
-                "&#FFAA00/seemegameteor stop &#FFFFFF- Принудительно остановить",
+                "&#FFAA00/seemegameteor start [state] &#FFFFFF- Запустить ивент (state - в своем местоположении)",
+                "&#FFAA00/seemegameteor stop &#FFFFFF- Остановить ивент",
                 "&#FFAA00/seemegameteor tp &#FFFFFF- Телепорт к ивенту",
                 "&#FFAA00/seemegameteor reload &#FFFFFF- Перезагрузить конфиг",
                 "&#FFAA00/seemegameteor disable &#FFFFFF- Отключить ивенты",
@@ -69,13 +87,19 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
         help.forEach(line -> sender.sendMessage(ChatColor.translateAlternateColorCodes('&', line)));
     }
 
-    private void handleStartCommand(CommandSender sender) {
-        if (plugin.getEventManager().isEventRunning()) {
-            sendMessage(sender, "messages.errors.already_running");
-            return;
+    private void handleStartCommand(CommandSender sender, String[] args) {
+        if (args.length > 1 && args[1].equalsIgnoreCase("state")) {
+            if (sender instanceof Player) {
+                Player player = (Player) sender;
+                plugin.getEventManager().adminStartAtLocation(player.getLocation());
+                sendMessage(sender, "messages.event_started_at_location");
+            } else {
+                sendMessage(sender, "messages.errors.only_for_players");
+            }
+        } else {
+            plugin.getEventManager().adminStart();
+            sendMessages("messages.external.start");
         }
-        plugin.getEventManager().adminStart();
-        sendMessages("messages.external.start");
     }
 
     private void handleStopCommand(CommandSender sender) {
@@ -168,10 +192,17 @@ public class SeeMegaMeteorCommand implements CommandExecutor, TabCompleter {
                     .collect(Collectors.toList());
         }
 
-        if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
-            return editSubCommands.stream()
-                    .filter(c -> c.startsWith(args[1].toLowerCase()))
-                    .collect(Collectors.toList());
+        if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("edit")) {
+                return editSubCommands.stream()
+                        .filter(c -> c.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+            if (args[0].equalsIgnoreCase("start")) {
+                return startSubCommands.stream()
+                        .filter(c -> c.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
         }
 
         return Collections.emptyList();

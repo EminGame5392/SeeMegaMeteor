@@ -55,15 +55,13 @@ public class LootEditMenu implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        if (e.getView().getTitle().equals("§6Редактор лута") &&
-                e.getPlayer().getUniqueId().equals(player.getUniqueId())) {
-
+        if (e.getView().getTitle().equals("§6Редактор лута")) {
             LootManager lm = plugin.getLootManager();
             lm.getEntries().clear();
 
             for (int i = 0; i < inv.getSize(); i++) {
                 ItemStack it = inv.getItem(i);
-                if (it != null && it.getType() != Material.AIR && it.getType() != Material.BARRIER) {
+                if (it != null && it.getType() != Material.AIR) {
                     lm.getEntries().add(new LootEntry(it.clone(), 1.0));
                 }
             }

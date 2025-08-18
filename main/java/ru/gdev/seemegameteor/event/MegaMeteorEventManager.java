@@ -36,6 +36,17 @@ public class MegaMeteorEventManager {
     private long phaseEndsAtEpochSec;
     private final List<Item> spawnedLoot = new ArrayList<>();
 
+    public void adminStartAtLocation(Location location) {
+        if (state != EventState.IDLE) {
+            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&',
+                    plugin.getConfig().getString("messages.errors.already_running")));
+            return;
+        }
+        this.eventCenter = location.clone();
+        spawnStage1();
+        broadcastMessages("messages.external.start");
+    }
+
     public MegaMeteorEventManager(SeeMegaMeteor plugin, LootManager lootManager, WorldEditBridge we) {
         this.plugin = plugin;
         this.lootManager = lootManager;
@@ -227,6 +238,36 @@ public class MegaMeteorEventManager {
         spawnedLoot.add(dropped);
         w.playSound(eventCenter, Sound.ENTITY_ITEM_PICKUP, 0.6f,
                 0.5f + ThreadLocalRandom.current().nextFloat() * 0.5f);
+    }
+
+    public void updateHologramStatus() {
+        if (activatorHolo != null) {
+            activatorHolo.spawn();
+        }
+    }
+
+    private void spawnLootItems() {
+        World world = eventCenter.getWorld();
+        int glowDuration = plugin.getConfig().getInt("event_settings.loot.glow_duration", 40) * 20;
+        double radius = plugin.getConfig().getDouble("event_settings.loot.spawn_radius", 15);
+        double spread = plugin.getConfig().getDouble("event_settings.loot.item_spread", 0.5);
+
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            LootEntry entry = lootManager.roll();
+            if (entry != null) {
+                Item item = world.dropItem(eventCenter.clone().add(0, 1, 0), entry.getItem().clone());
+                item.setGlowing(true);
+                item.setVelocity(new Vector(
+                        (ThreadLocalRandom.current().nextDouble() - 0.5) * spread,
+                        0.5,
+                        (ThreadLocalRandom.current().nextDouble() - 0.5) * spread
+                ));
+                spawnedLoot.add(item);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (!item.isDead()) item.remove();
+                }, glowDuration);
+            }
+        }, 0L, 10L);
     }
 
     private void glowBurst() {
